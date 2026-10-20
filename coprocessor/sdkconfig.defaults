@@ -38,6 +38,10 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # The console driver's interrupt runs from flash, so the ring buffer's
 # interrupt-side functions can too.
 CONFIG_RINGBUF_PLACE_ISR_FUNCTIONS_INTO_FLASH=y
+# Console UART0 at 921600, like the bridge host, so log bursts drain 8
+# times faster. Serial monitors must open the port at 921600.
+CONFIG_ESP_CONSOLE_UART_CUSTOM=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
 
 # FTM: responder on the SoftAP per IEEE 802.1AS-2020 §12.1.2. STAs
 # initiate FTM bursts against the AP; this side must respond.
