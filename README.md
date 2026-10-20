@@ -8,11 +8,11 @@ Time-of-day is propagated to wireless endpoints through the AP's
 §12.7 `FollowUpInformation`.
 
 The pairing target is the wireless build of
-[scrambletoolsllc/ESP-AVB-Endpoint](https://github.com/scrambletoolsllc/ESP-AVB-Endpoint),
+[scrambletools/ESP-AVB-Endpoint](https://github.com/scrambletools/ESP-AVB-Endpoint),
 but any Milan-compatible AVB endpoint on the wired side or any STA on
 the SoftAP that speaks AVB-over-Wi-Fi will interoperate.
 
-The source lives at <https://github.com/scrambletoolsllc/ESP-AVB-Bridge>;
+The source lives at <https://github.com/scrambletools/ESP-AVB-Bridge>;
 old github.com/scrambletools/... links redirect there. The esp_avb,
 esp_ptp and esp_hosted_avb components come from the ESP Component
 Registry under the **scrambletools** namespace
