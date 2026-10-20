@@ -46,6 +46,8 @@
 #include <hosted_avb_peer.h>
 #include <hosted_avb_proto.h>
 #include <sdkconfig.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 extern void ftm_clock_probe_transport_ready(void) __attribute__((weak));
@@ -387,12 +389,40 @@ static void heap_census_task(void *arg) {
  * core waits. */
 #define CONSOLE_TX_BUFFER_BYTES 8192
 
+#if CONFIG_ESP_CONSOLE_UART
+/* Log lines reach the driver as one write each. Through stdio it gets
+ * one character at a time, two ring-buffer items each, and its interrupt
+ * then spends hundreds of microseconds per FIFO refill. */
+#define CONSOLE_LINE_BYTES 1024
+
+static SemaphoreHandle_t s_console_line_lock;
+
+static int console_write_line(const char *format, va_list args) {
+  static char line[CONSOLE_LINE_BYTES];
+  xSemaphoreTake(s_console_line_lock, portMAX_DELAY);
+  int length = vsnprintf(line, sizeof(line), format, args);
+  if (length >= (int)sizeof(line)) {
+    /* Cut, but keep the line ending so the next line starts clean. */
+    length = sizeof(line) - 1;
+    line[length - 1] = '\n';
+  }
+  if (length > 0)
+    uart_write_bytes(CONFIG_ESP_CONSOLE_UART_NUM, line, length);
+  xSemaphoreGive(s_console_line_lock);
+  return length;
+}
+#endif
+
 static void console_use_driver(void) {
 #if CONFIG_ESP_CONSOLE_UART
   if (uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM,
                           2 * UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM),
-                          CONSOLE_TX_BUFFER_BYTES, 0, NULL, 0) == ESP_OK)
-    uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+                          CONSOLE_TX_BUFFER_BYTES, 0, NULL, 0) != ESP_OK)
+    return;
+  uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+  s_console_line_lock = xSemaphoreCreateMutex();
+  if (s_console_line_lock)
+    esp_log_set_vprintf(console_write_line);
 #endif
 }
 
