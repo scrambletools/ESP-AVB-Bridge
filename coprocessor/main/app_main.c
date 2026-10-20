@@ -8,9 +8,14 @@
  */
 
 #include "sdkconfig.h"
+#include <stdarg.h>
+#include <stdio.h>
 #include "driver/uart.h"
 #include "driver/uart_vfs.h"
 #include "esp_event.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "nvs_flash.h"
 
 #if CONFIG_ESP_WIFI_ENABLE_WIFI_TX_STATS
@@ -110,12 +115,40 @@ static void enable_tx_stats(void *context, esp_event_base_t base, int32_t id,
  * the TX buffer and returns instead of spinning until the port sends it.
  * Its RPC task shares a priority with the task that moves host frames to
  * the radio, and each clock probe line held it for 4 to 9 ms. */
+#if CONFIG_ESP_CONSOLE_UART
+/* Log lines reach the driver as one write each. Through stdio it gets
+ * one character at a time, two ring-buffer items each, and its interrupt
+ * then spends hundreds of microseconds per FIFO refill. */
+#define CONSOLE_LINE_BYTES 512
+
+static SemaphoreHandle_t s_console_line_lock;
+
+static int console_write_line(const char *format, va_list args) {
+  static char line[CONSOLE_LINE_BYTES];
+  xSemaphoreTake(s_console_line_lock, portMAX_DELAY);
+  int length = vsnprintf(line, sizeof(line), format, args);
+  if (length >= (int)sizeof(line)) {
+    /* Cut, but keep the line ending so the next line starts clean. */
+    length = sizeof(line) - 1;
+    line[length - 1] = '\n';
+  }
+  if (length > 0)
+    uart_write_bytes(CONFIG_ESP_CONSOLE_UART_NUM, line, length);
+  xSemaphoreGive(s_console_line_lock);
+  return length;
+}
+#endif
+
 static void console_use_driver(void) {
 #if CONFIG_ESP_CONSOLE_UART
   if (uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM,
                           2 * UART_HW_FIFO_LEN(CONFIG_ESP_CONSOLE_UART_NUM),
-                          4096, 0, NULL, 0) == ESP_OK)
-    uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+                          4096, 0, NULL, 0) != ESP_OK)
+    return;
+  uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+  s_console_line_lock = xSemaphoreCreateMutex();
+  if (s_console_line_lock)
+    esp_log_set_vprintf(console_write_line);
 #endif
 }
 
