@@ -285,6 +285,21 @@ static esp_err_t init_wifi_softap(void) {
   };
 
   WIFI_CHECK(esp_wifi_set_mode(WIFI_MODE_AP), "esp_wifi_set_mode");
+  /* The AP takes the second address of this bridge's MA-S run (the
+   * soft-AP offset); the coprocessor applies it only before the AP
+   * starts. */
+  uint8_t ap_mac[6];
+  if (avb_registry_base_mac(ap_mac)) {
+    ap_mac[5] += 1;
+    esp_err_t mac_err = esp_wifi_set_mac(WIFI_IF_AP, ap_mac);
+    if (mac_err == ESP_OK)
+      ESP_LOGI(TAG, "AP MAC %02x:%02x:%02x:%02x:%02x:%02x from the registry",
+               ap_mac[0], ap_mac[1], ap_mac[2], ap_mac[3], ap_mac[4],
+               ap_mac[5]);
+    else
+      ESP_LOGW(TAG, "esp_wifi_set_mac(AP) failed (%s), factory MAC kept",
+               esp_err_to_name(mac_err));
+  }
   WIFI_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_cfg), "esp_wifi_set_config");
   /* Keep FTM PHY calibration stable when a 20 MHz station associates. */
   WIFI_CHECK(esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW20),
@@ -482,6 +497,9 @@ void app_main(void) {
 #endif
 
   struct timespec cur_time;
+
+  /* The Scramble Tools MA-S address, before Ethernet reads one. */
+  avb_registry_apply_base_mac();
 
   init_ethernet_and_netif();
   ESP_LOGI(TAG, "Ethernet started");
