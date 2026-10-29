@@ -59,8 +59,42 @@ int main(void)
     fresh.reanchor = true;
     stepped_remote.tv_sec++; stepped_local.tv_sec++;
     assert(!ptp_peer_rate_update(&fresh, 4, responder, &stepped_remote, 0, &stepped_local));
+    /* A neighbor's step spoils the interval across it: the ratio measured
+     * before stands, and the next sound interval measures on. */
+    ptp_peer_rate_t neighbor = {0};
+    struct timespec neighbor_remote = {700, 0}, neighbor_local = {30, 0};
+    assert(!ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    neighbor_remote.tv_sec++; neighbor_remote.tv_nsec = 100000; neighbor_local.tv_sec++;
+    assert(ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    neighbor_remote.tv_sec += 2; neighbor_local.tv_sec++;
+    assert(ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    assert(fabs(neighbor.ratio-1.0001)<1e-12 && neighbor.outliers == 1 && neighbor.updates == 1);
+    neighbor_remote.tv_sec++; neighbor_local.tv_sec++;
+    assert(ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    assert(fabs(neighbor.ratio-1.0)<1e-12 && neighbor.outliers == 0 && neighbor.updates == 2);
+    /* Backward steps too, up to three in a row; a fourth fails, and a
+     * sound interval after it measures again. */
+    for (unsigned step = 1; step <= PTP_PEER_RATE_OUTLIERS_MAX; ++step) {
+        neighbor_remote.tv_sec -= 5; neighbor_local.tv_sec++;
+        assert(ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+        assert(fabs(neighbor.ratio-1.0)<1e-12 && neighbor.outliers == step);
+    }
+    neighbor_remote.tv_sec -= 5; neighbor_local.tv_sec++;
+    assert(!ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    assert(!neighbor.valid && neighbor.outliers == 0);
+    neighbor_remote.tv_sec -= 5; neighbor_local.tv_sec++;
+    assert(!ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    neighbor_remote.tv_sec++; neighbor_local.tv_sec++;
+    assert(ptp_peer_rate_update(&neighbor, 5, responder, &neighbor_remote, 0, &neighbor_local));
+    /* A neighbor off rate from the start never gets a ratio to keep. */
+    ptp_peer_rate_t slewed = {0};
+    struct timespec slewed_remote = {900, 0}, slewed_local = {40, 0};
+    assert(!ptp_peer_rate_update(&slewed, 6, responder, &slewed_remote, 0, &slewed_local));
+    slewed_remote.tv_nsec = 937500000; slewed_local.tv_sec++;
+    assert(!ptp_peer_rate_update(&slewed, 6, responder, &slewed_remote, 0, &slewed_local));
+    assert(!slewed.valid && slewed.outliers == 0);
     uint8_t correction[8];
     encode(correction, 16384); assert(ptp_peer_correction(correction)==.25);
     encode(correction, -49152); assert(ptp_peer_correction(correction)==-.75);
-    puts("Peer rate handles unrelated epochs, +/-100ppm, fractional corrections, identity/lifecycle changes, gaps, invalid rates and local clock steps");
+    puts("Peer rate handles unrelated epochs, +/-100ppm, fractional corrections, identity/lifecycle changes, gaps, invalid rates, local clock steps and neighbor clock steps");
 }
