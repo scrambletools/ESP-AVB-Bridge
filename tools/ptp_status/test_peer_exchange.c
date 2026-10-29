@@ -38,6 +38,20 @@ int main(void)
     ptp_peer_invalidate(&exchange);
     assert(!exchange.response_count && !exchange.response_rejections);
     assert(exchange.lifecycle==1);
+    /* A local clock step abandons the request in flight, keeping the
+     * link's lifecycle and losses: its answer is refused. */
+    {
+        ptp_peer_exchange_t stepped = {0};
+        start(&stepped);
+        assert(ptp_peer_expire(&stepped, 1000) && stepped.lost_responses==1);
+        start(&stepped);
+        uint32_t lifecycle = stepped.lifecycle, before = stepped.generation;
+        ptp_peer_abandon(&stepped);
+        assert(stepped.lifecycle==lifecycle && stepped.generation!=before);
+        assert(stepped.lost_responses==1 && !stepped.published && !stepped.sending);
+        assert(ptp_peer_response(&stepped, &response, &receive, 200)==PTP_PEER_IGNORED);
+        assert(!stepped.response_seen);
+    }
     assert(!ptp_peer_publish(&exchange, generation, &transmit, 100));
     start(&exchange);
     assert(exchange.lifecycle==1);

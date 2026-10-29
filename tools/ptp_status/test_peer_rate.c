@@ -39,8 +39,28 @@ int main(void)
     assert(!ptp_peer_rate_update(&rate, 2, responder, &remote, 0, &local));
     remote.tv_sec++; local.tv_sec += 2;
     assert(!ptp_peer_rate_update(&rate, 2, responder, &remote, 0, &local));
+    /* A step of the local clock: the sample after it re-anchors and keeps
+     * the ratio measured before; the next one measures on. */
+    ptp_peer_rate_t stepped = {0};
+    struct timespec stepped_remote = {500, 0}, stepped_local = {20, 0};
+    assert(!ptp_peer_rate_update(&stepped, 3, responder, &stepped_remote, 0, &stepped_local));
+    stepped_remote.tv_sec++; stepped_remote.tv_nsec = 100000; stepped_local.tv_sec++;
+    assert(ptp_peer_rate_update(&stepped, 3, responder, &stepped_remote, 0, &stepped_local));
+    stepped.reanchor = true;
+    stepped_remote.tv_sec++; stepped_local.tv_sec += 1000;
+    assert(ptp_peer_rate_update(&stepped, 3, responder, &stepped_remote, 0, &stepped_local));
+    assert(fabs(stepped.ratio-1.0001)<1e-12 && !stepped.reanchor && stepped.updates == 1);
+    stepped_remote.tv_sec++; stepped_local.tv_sec++;
+    assert(ptp_peer_rate_update(&stepped, 3, responder, &stepped_remote, 0, &stepped_local));
+    assert(fabs(stepped.ratio-1.0)<1e-12);
+    /* Before any ratio, a re-anchor still has none. */
+    ptp_peer_rate_t fresh = {0};
+    assert(!ptp_peer_rate_update(&fresh, 4, responder, &stepped_remote, 0, &stepped_local));
+    fresh.reanchor = true;
+    stepped_remote.tv_sec++; stepped_local.tv_sec++;
+    assert(!ptp_peer_rate_update(&fresh, 4, responder, &stepped_remote, 0, &stepped_local));
     uint8_t correction[8];
     encode(correction, 16384); assert(ptp_peer_correction(correction)==.25);
     encode(correction, -49152); assert(ptp_peer_correction(correction)==-.75);
-    puts("Peer rate handles unrelated epochs, +/-100ppm, fractional corrections, identity/lifecycle changes, gaps and invalid rates");
+    puts("Peer rate handles unrelated epochs, +/-100ppm, fractional corrections, identity/lifecycle changes, gaps, invalid rates and local clock steps");
 }
