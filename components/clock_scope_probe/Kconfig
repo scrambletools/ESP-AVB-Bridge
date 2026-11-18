@@ -27,4 +27,38 @@ config CLOCK_SCOPE_GPIO_LDO4
         GPIO39 to GPIO48 sit in a bank the P4-WIFI6-POE-ETH supplies from
         LDO4. Leave it off for pins outside that bank, and on boards
         whose LDO4 feeds something else.
+config CLOCK_SCOPE_HW_PPS
+    bool "Use the EMAC's hardware PPS output (P4)"
+    depends on CLOCK_SCOPE_PROBE && IDF_TARGET_ESP32P4
+    default n
+    help
+        Routes the EMAC's PPS0 output, driven by the PTP counter itself, to
+        CLOCK_SCOPE_GPIO instead of placing timer pulses in software, so
+        the edges carry no software placement error. It alternates, on
+        gPTP time, between CLOCK_SCOPE_HW_PPS_SLOW_CMD and
+        CLOCK_SCOPE_HW_PPS_FAST_CMD every CLOCK_SCOPE_HW_PPS_BLOCK_S
+        seconds, so boards on one gPTP domain switch together.
+
+config CLOCK_SCOPE_HW_PPS_SLOW_CMD
+    int "PPSCTRL0 value for the slow blocks"
+    depends on CLOCK_SCOPE_HW_PPS
+    range 0 15
+    default 1
+    help
+        0 gives a narrow 1 PPS pulse. With binary rollover, n gives a
+        2^n Hz square wave whose rising edges fall on gPTP time (1: 2 Hz).
+
+config CLOCK_SCOPE_HW_PPS_FAST_CMD
+    int "PPSCTRL0 value for the fast blocks"
+    depends on CLOCK_SCOPE_HW_PPS
+    range 1 15
+    default 14
+    help
+        With binary rollover, a 2^n Hz square wave (14: 16384 Hz).
+
+config CLOCK_SCOPE_HW_PPS_BLOCK_S
+    int "Seconds per block"
+    depends on CLOCK_SCOPE_HW_PPS
+    range 10 86400
+    default 600
 endmenu

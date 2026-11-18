@@ -3,7 +3,7 @@ if(CONFIG_CLOCK_SCOPE_PROBE)
     list(APPEND scope_sources "clock_scope_probe.c")
 endif()
 idf_component_register(SRCS ${scope_sources}
-    PRIV_REQUIRES esp_ptp esp_timer esp_driver_gpio esp_driver_gptimer esp_hw_support
+    PRIV_REQUIRES esp_ptp esp_timer esp_driver_gpio esp_driver_gptimer esp_hw_support esp_eth
     WHOLE_ARCHIVE)
 if(CONFIG_CLOCK_SCOPE_PROBE)
     idf_component_get_property(timer_library esp_driver_gptimer COMPONENT_LIB)

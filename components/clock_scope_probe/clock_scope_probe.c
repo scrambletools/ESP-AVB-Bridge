@@ -22,6 +22,10 @@ extern bool scope_capture_local(gptimer_handle_t timer, uint64_t *before,
 #if CONFIG_IDF_TARGET_ESP32P4
 #include "esp_ldo_regulator.h"
 #include "soc/emac_ptp_struct.h"
+#if CONFIG_CLOCK_SCOPE_HW_PPS
+#include "esp_private/eth_mac_esp_gpio.h"
+#include "esp_private/esp_gpio_reserve.h"
+#endif
 extern void scope_capture_register(gptimer_handle_t timer,
     volatile const uint32_t *counter, uint64_t *before, uint32_t *value, uint64_t *after);
 #if CONFIG_CLOCK_SCOPE_GPIO_LDO4
@@ -31,6 +35,8 @@ static esp_ldo_channel_handle_t output_supply;
 #define SCOPE_GPIO CONFIG_CLOCK_SCOPE_GPIO
 
 static const char *TAG = "clock_scope";
+
+#if !CONFIG_CLOCK_SCOPE_HW_PPS
 static gptimer_handle_t pulse_timer;
 static TaskHandle_t pulse_task;
 
@@ -221,8 +227,58 @@ static void scope_task(void *context)
     }
 }
 
+#endif /* !CONFIG_CLOCK_SCOPE_HW_PPS */
+
+#if CONFIG_CLOCK_SCOPE_HW_PPS
+/* The EMAC drives the edges from its PTP counter; this task only routes
+ * PPS0 to the pin and picks its frequency for the current block. */
+static void hw_pps_task(void *context)
+{
+    (void)context;
+    vTaskDelay(pdMS_TO_TICKS(30000));
+    esp_err_t routed = emac_esp_gpio_matrix_init_ptp_pps(SCOPE_GPIO);
+    if (routed != ESP_OK) {
+        /* Something reserved the pin. Show what drives it, then take it:
+         * this is a diagnostic on a header pin nothing else should use. */
+        ESP_LOGW(TAG, "GPIO%d: PPS0 routing failed (%s), reserved %d; its current function:",
+                 SCOPE_GPIO, esp_err_to_name(routed),
+                 esp_gpio_is_reserved(BIT64(SCOPE_GPIO)));
+        gpio_dump_io_configuration(stdout, BIT64(SCOPE_GPIO));
+        esp_gpio_revoke(BIT64(SCOPE_GPIO));
+        routed = emac_esp_gpio_matrix_init_ptp_pps(SCOPE_GPIO);
+    }
+    if (routed != ESP_OK) {
+        ESP_LOGE(TAG, "GPIO%d: no PPS0 output (%s)", SCOPE_GPIO, esp_err_to_name(routed));
+        vTaskDelete(NULL);
+    }
+    ESP_LOGI(TAG, "GPIO%d: EMAC hardware PPS0, %s rollover, slow %d / fast %d, %d s blocks",
+             SCOPE_GPIO, EMAC_PTP.timestamp_ctrl.ts_digit_bin_roll_ctrl ? "digital" : "binary",
+             CONFIG_CLOCK_SCOPE_HW_PPS_SLOW_CMD, CONFIG_CLOCK_SCOPE_HW_PPS_FAST_CMD,
+             CONFIG_CLOCK_SCOPE_HW_PPS_BLOCK_S);
+    int current = -1;
+    while (true) {
+        struct timespec now;
+        if (ptpd_now(&now) == 0 && now.tv_sec >= 0) {
+            bool fast = (now.tv_sec / CONFIG_CLOCK_SCOPE_HW_PPS_BLOCK_S) % 2;
+            int command = fast ? CONFIG_CLOCK_SCOPE_HW_PPS_FAST_CMD :
+                                 CONFIG_CLOCK_SCOPE_HW_PPS_SLOW_CMD;
+            if (command != current) {
+                EMAC_PTP.pps_ctrl.pps_cmd0 = command;
+                current = command;
+                ESP_LOGI(TAG, "SCOPE_HWPPS,%lld,%d", (long long)now.tv_sec, command);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+#endif
+
 __attribute__((constructor)) static void start_scope_probe(void)
 {
+#if CONFIG_CLOCK_SCOPE_HW_PPS
+    if (xTaskCreate(hw_pps_task, "clock_scope", 3072, NULL, 4, NULL) != pdPASS)
+#else
     if (xTaskCreate(scope_task, "clock_scope", 4096, NULL, 4, NULL) != pdPASS)
+#endif
         ESP_LOGE(TAG, "could not start timing diagnostic");
 }
