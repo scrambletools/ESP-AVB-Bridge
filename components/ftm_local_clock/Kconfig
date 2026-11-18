@@ -1,6 +1,6 @@
 menu "FTM local clock mapping"
 config FTM_LOCAL_CLOCK
-    bool "Continuously measure C6 MAC to SYSTIMER mapping"
+    bool "Continuously measure C6 MAC to local clock mapping"
     depends on IDF_TARGET_ESP32C6
     default n
     help

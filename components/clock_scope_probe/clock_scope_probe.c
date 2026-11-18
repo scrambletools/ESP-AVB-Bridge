@@ -17,7 +17,7 @@ extern int ptpd_now(struct timespec *timestamp);
 #if CONFIG_IDF_TARGET_ESP32C6
 #include "ptp_clock_affine.h"
 extern bool scope_capture_local(gptimer_handle_t timer, uint64_t *before,
-                                 uint64_t *local_ticks, uint64_t *after);
+                                 int64_t *local_ns, uint64_t *after);
 #endif
 #if CONFIG_IDF_TARGET_ESP32P4
 #include "esp_ldo_regulator.h"
@@ -53,11 +53,10 @@ static bool read_anchor(scope_anchor_t *best)
         vTaskSuspendAll();
         ptp_clock_affine_t mapping = {0};
         bool initialized = ptp_clock_sw_snapshot(&mapping);
-        uint64_t ticks;
-        valid = scope_capture_local(pulse_timer, &before, &ticks, &after);
+        int64_t local_ns;
+        valid = scope_capture_local(pulse_timer, &before, &local_ns, &after);
         xTaskResumeAll();
         /* Affine arithmetic is outside the hardware sampling bracket. */
-        int64_t local_ns = (int64_t)(ticks / 2 * 125 + (ticks & 1) * 62);
         clock_ns = ptp_clock_affine_now(&mapping, local_ns);
         valid = valid && initialized;
 #else
