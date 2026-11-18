@@ -24,11 +24,11 @@ extern bool scope_capture_local(gptimer_handle_t timer, uint64_t *before,
 #include "soc/emac_ptp_struct.h"
 extern void scope_capture_register(gptimer_handle_t timer,
     volatile const uint32_t *counter, uint64_t *before, uint32_t *value, uint64_t *after);
-#define SCOPE_GPIO 45
+#if CONFIG_CLOCK_SCOPE_GPIO_LDO4
 static esp_ldo_channel_handle_t output_supply;
-#else
-#define SCOPE_GPIO 18
 #endif
+#endif
+#define SCOPE_GPIO CONFIG_CLOCK_SCOPE_GPIO
 
 static const char *TAG = "clock_scope";
 static gptimer_handle_t pulse_timer;
@@ -111,13 +111,13 @@ static bool IRAM_ATTR alarm_notify(gptimer_handle_t timer,
 
 static void initialize_output(void)
 {
-#if CONFIG_IDF_TARGET_ESP32P4
-    /* Waveshare P4-WIFI6-POE-ETH supplies GPIO45's bank from LDO4. */
+#if CONFIG_CLOCK_SCOPE_GPIO_LDO4
+    /* Waveshare P4-WIFI6-POE-ETH supplies the GPIO39-48 bank from LDO4. */
     const esp_ldo_channel_config_t supply = {
         .chan_id = 4, .voltage_mv = 3300, .voltage_stable_delay_us = 1000,
     };
     ESP_ERROR_CHECK(esp_ldo_acquire_channel(&supply, &output_supply));
-    ESP_LOGI(TAG, "GPIO45 bank supply LDO4 enabled at 3300 mV");
+    ESP_LOGI(TAG, "GPIO%d bank supply LDO4 enabled at 3300 mV", SCOPE_GPIO);
 #endif
     gpio_config_t output = {.pin_bit_mask = 1ULL << SCOPE_GPIO,
                             .mode = GPIO_MODE_INPUT_OUTPUT};

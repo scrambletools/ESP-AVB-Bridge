@@ -4,7 +4,27 @@ config CLOCK_SCOPE_PROBE
     default n
     depends on IDF_TARGET_ESP32P4 || IDF_TARGET_ESP32C6
     help
-        Hardware timer pulses on P4 GPIO45 or endpoint C6 GPIO18.
-        P4 requires Waveshare P4-WIFI6-POE-ETH wiring; enables LDO4 at 3.3 V.
+        Hardware timer pulses on CLOCK_SCOPE_GPIO, once a second on the
+        gPTP second.
         Includes scheduling diagnostics; does not enable FTM discipline.
+config CLOCK_SCOPE_GPIO
+    int "Pulse GPIO"
+    depends on CLOCK_SCOPE_PROBE
+    default 45 if IDF_TARGET_ESP32P4
+    default 18
+    help
+        GPIO for the once-a-second edge. P4 bridge (Waveshare
+        P4-WIFI6-POE-ETH): 45. P4 endpoints (Waveshare ESP32-P4-ETH with
+        the hat-trik): a free header pin outside the hat, such as 27.
+        Endpoint C6: 18.
+
+config CLOCK_SCOPE_GPIO_LDO4
+    bool "Power the pulse GPIO's bank from LDO4 at 3.3 V"
+    depends on CLOCK_SCOPE_PROBE && IDF_TARGET_ESP32P4
+    default y if CLOCK_SCOPE_GPIO >= 39 && CLOCK_SCOPE_GPIO <= 48
+    default n
+    help
+        GPIO39 to GPIO48 sit in a bank the P4-WIFI6-POE-ETH supplies from
+        LDO4. Leave it off for pins outside that bank, and on boards
+        whose LDO4 feeds something else.
 endmenu
