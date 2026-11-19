@@ -12,4 +12,5 @@ idf_component_register(SRCS ${srcs}
                                      esp_netif esp_event esp_timer esp_wifi
                                      esp_driver_gpio esp_driver_uart esp_rom heap
                                      log nvs_flash
-                                     espressif__ip101 espressif__esp_hosted)
+                                     espressif__ip101 espressif__esp_hosted
+                                     coprocessor_fw)

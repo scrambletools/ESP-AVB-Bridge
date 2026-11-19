@@ -20,6 +20,7 @@
 #ifdef CONFIG_AVB_BRIDGE_PERF_TEST_MODE
 #include "avb_bridge_perf_test.h"
 #endif
+#include "coprocessor_fw.h"
 #include "sdkconfig.h"
 /* Self-gates on CONFIG_HEAP_TASK_TRACKING internally. */
 #include "esp_heap_task_info.h"
@@ -544,6 +545,14 @@ void app_main(void) {
   /* Bridge role: port 0 = Ethernet (EMAC), port 1 = Wi-Fi AP. */
   avb_config_s avb_config = AVB_DEFAULT_CONFIG();
   avb_config.entity_name = "AVB Bridge";
+#ifdef CONFIG_ESP_AVB_ATDECC
+  /* The maintenance entity (no streams): its model ID and the
+   * coprocessor's firmware as a memory object. */
+  avb_config.model_id = CONFIG_AVB_BRIDGE_MODEL_ID;
+  avb_config.vendor_name = "Scramble Tools";
+  avb_config.model_name = "ESP-AVB Bridge";
+  coprocessor_fw_register();
+#endif
   avb_config.eth_handle = s_eth_handle;
   avb_config.eth_interface = "ETH_0";
   avb_config.wifi_interface = AVB_AP_IF_KEY;
