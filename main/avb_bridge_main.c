@@ -99,7 +99,7 @@ static void on_ap_sta_disconnected(void *arg, esp_event_base_t base,
  * default AP key, so the bridge port keeps that key. */
 #define AVB_AP_IF_KEY "WIFI_AP_DEF"
 #define AVB_AP_SSID "ESP-AVB-Bridge"
-#define AVB_AP_CHANNEL 6
+#define AVB_AP_CHANNEL CONFIG_AVB_BRIDGE_AP_CHANNEL
 #define AVB_AP_MAX_CONN 4
 /* Beacon interval in TUs of 1024 µs. 100 TU = 102.4 ms; the small
  * mismatch with 802.1AS §12.8.2's preferred 125 ms (logSyncInterval

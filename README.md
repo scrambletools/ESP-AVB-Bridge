@@ -157,6 +157,7 @@ Key host-side defaults baked into `sdkconfig.defaults`:
   not set them by hand.
 - AVB Lite advertised on the wired side
   (`CONFIG_ESP_AVB_AVB_LITE_COMPLIANT=y`)
+- SoftAP channel `CONFIG_AVB_BRIDGE_AP_CHANNEL` (default 6)
 
 ### Identifying which `/dev/<serial-device>` is which
 

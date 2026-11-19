@@ -1,5 +1,12 @@
 menu "AVB Bridge Configuration"
 
+    config AVB_BRIDGE_AP_CHANNEL
+        int "SoftAP channel"
+        range 1 13
+        default 6
+        help
+            The 2.4 GHz channel of the bridge's access point.
+
     config AVB_BRIDGE_PERF_TEST_MODE
         bool "Perf-test mode (skip PTP/AVB, blast AVTP frames out WiFi AP)"
         default n
