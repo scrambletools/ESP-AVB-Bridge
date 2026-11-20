@@ -7,8 +7,8 @@
  * 802.1AS-style FTM burst (PTP compatible, three frames) every 125 ms. The
  * responder puts a Follow_Up in each FTM frame: gPTP time at that
  * measurement's t1. With the round trip that gives gPTP time at t2, our
- * receive time, which is on the Wi-Fi MAC clock. A map of the MAC clock
- * onto the clock link's timer turns t2 into that timer's time, and each
+ * receive time, which is on the Wi-Fi MAC clock. The clock link's map of
+ * the MAC clock onto its timer turns t2 into that timer's time, and each
  * session's result goes to the host, which has the same timer paired with
  * its own PTP clock (hosted_avb_wifi_time.c).
  *
@@ -50,14 +50,9 @@
 #define REMOTE_MASK ((UINT64_C(1) << 48) - 1)
 #define RTT_MIN_PS -25000 /* the bench's round trip reads slightly negative */
 #define RTT_MAX_PS 2000000
-#define MAP_SAMPLES 256
-#define MAP_MAX_BRACKET_NS 1000
 #define MAP_MAX_SHIFT_NS 500
 #define ANCHOR_MAX_AGE_US 2000000 /* a previous session's anchor for the rate */
 #define RATE_MAX_AGE_US 5000000   /* the last rate, when there is no anchor */
-
-/* The Wi-Fi MAC's microsecond clock, the clock FTM timestamps run on. */
-#define MAC_CLOCK_REG ((volatile const uint32_t *)0x600ad000U)
 
 static const char *TAG = "ftm_time";
 
@@ -90,69 +85,14 @@ static bool plausible_rate(double rate) {
   return isfinite(rate) && fabs(rate - 1) <= .001;
 }
 
-/* The MAC clock on the clock link's timer: at MAC time mac_us exactly,
- * the timer read cp_ns. */
-typedef struct {
-  bool valid;
-  uint32_t mac_us;
-  int64_t cp_ns;
-  uint32_t uncertainty_ns;
-} mac_map_t;
+typedef hosted_avb_mac_map_t mac_map_t;
 
-/* Reads the MAC clock between two timer latches many times, at random
- * phases against its microsecond steps. Each read bounds the map; the
- * bounds close in to about the bracket's width. */
 static bool map_mac_clock(mac_map_t *map) {
-  *map = (mac_map_t){0};
-  uint32_t phase = esp_random() | 1;
-  uint32_t anchor_mac = 0;
-  int64_t lower = INT64_MIN, upper = INT64_MAX;
-  unsigned used = 0;
-  for (unsigned attempt = 0; attempt < MAP_SAMPLES; attempt++) {
-    phase ^= phase << 13;
-    phase ^= phase >> 17;
-    phase ^= phase << 5;
-    for (unsigned delay = phase & 31; delay; --delay)
-      __asm__ volatile("nop");
-    int64_t before, after;
-    uint32_t mac;
-    if (!hosted_avb_clock_link_coprocessor_read(MAC_CLOCK_REG, &before, &mac,
-                                                &after))
-      return false;
-    if (after - before > MAP_MAX_BRACKET_NS)
-      continue;
-    if (!used)
-      anchor_mac = mac;
-    int32_t delta = (int32_t)(mac - anchor_mac);
-    if (delta < 0 || delta > 1000000)
-      continue;
-    /* The timer at MAC time anchor_mac lies between these. */
-    int64_t low = before - (int64_t)delta * 1000 - 1000;
-    int64_t high = after + 25 - (int64_t)delta * 1000;
-    if (low > lower)
-      lower = low;
-    if (high < upper)
-      upper = high;
-    used++;
-  }
-  if (used < MAP_SAMPLES / 4 || lower > upper || upper - lower > 1000)
-    return false;
-  *map = (mac_map_t){
-      .valid = true,
-      .mac_us = anchor_mac,
-      .cp_ns = lower + (upper - lower) / 2,
-      .uncertainty_ns = (uint32_t)((upper - lower + 1) / 2),
-  };
-  return true;
+  return hosted_avb_clock_link_map_mac(map);
 }
 
-/* A local FTM timestamp (ps, on the MAC clock) on the timer. */
 static bool map_convert(const mac_map_t *map, uint64_t ftm_ps, int64_t *cp_ns) {
-  int64_t delta_us = (int32_t)((uint32_t)(ftm_ps / 1000000) - map->mac_us);
-  if (!map->valid || delta_us < -1000000 || delta_us > 1000000)
-    return false;
-  *cp_ns = map->cp_ns + delta_us * 1000 + (int64_t)(ftm_ps % 1000000) / 1000;
-  return true;
+  return hosted_avb_mac_map_convert(map, ftm_ps, cp_ns);
 }
 
 static int32_t map_shift(const mac_map_t *before, const mac_map_t *after) {
@@ -376,10 +316,8 @@ static void send(hosted_avb_wifi_time_t *message, uint32_t session,
 static void engine_task(void *arg) {
   /* The clock link starts with esp_hosted_avb, the event loop with
    * esp-hosted; wait for both. */
-  int64_t probe_before, probe_after;
-  uint32_t probe_value;
-  while (!hosted_avb_clock_link_coprocessor_read(
-      MAC_CLOCK_REG, &probe_before, &probe_value, &probe_after))
+  mac_map_t first_map;
+  while (!map_mac_clock(&first_map))
     vTaskDelay(pdMS_TO_TICKS(500));
   while (esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_FTM_REPORT,
                                     on_ftm_report, NULL) != ESP_OK)
