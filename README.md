@@ -137,6 +137,16 @@ tuning, and `CONFIG_HOSTED_AVB_BUILD_COPROCESSOR_HANDLER=y`, which
 compiles in the handler that responds to
 `HOSTED_AVB_MSG_SET_VENDOR_IE_REQ` from the host.
 
+The same coprocessor project also serves an endpoint's Wi-Fi
+coprocessor. There, `CONFIG_FTM_TIME_ENGINE` (off by default) runs the
+station side of 802.1AS FTM time transfer on the C6: a PTP compatible
+three-frame FTM burst to the access point every 125 ms, gPTP time read
+from the Follow_Up the responder puts in each frame, and each result sent
+to the host over `esp_hosted_avb`'s clock link and `WIFI_TIME` message.
+It needs `CONFIG_ESP_WIFI_ENABLE_FTM_PTP`, which only Espressif's
+pre-release FTM IDF has, `CONFIG_HOSTED_AVB_CLOCK_LINK` on both chips,
+and a responder that fills the Follow_Up.
+
 ### 2. Host (P4) firmware
 
 Build root: project root.

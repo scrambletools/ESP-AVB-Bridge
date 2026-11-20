@@ -1,0 +1,17 @@
+menu "FTM time engine"
+
+config FTM_TIME_ENGINE
+    bool "Measure gPTP time over FTM as a Wi-Fi coprocessor station"
+    depends on HOSTED_AVB_CLOCK_LINK && HOSTED_AVB_BUILD_COPROCESSOR_HANDLER
+    default n
+    help
+        For a Wi-Fi coprocessor that is a station (an endpoint's standby
+        link). While associated, it asks the access point for a PTP
+        compatible FTM burst every 125 ms, reads gPTP time from the
+        Follow_Up the responder puts in each frame, and sends the host
+        gPTP time against the clock link's timer. Needs
+        CONFIG_ESP_WIFI_ENABLE_FTM_PTP (Espressif's PTP compatible FTM)
+        and a responder that fills the Follow_Up. Enable
+        HOSTED_AVB_WIFI_TIME on the host.
+
+endmenu
