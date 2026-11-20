@@ -20,6 +20,12 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 
+# Flash auto-suspend keeps the caches on during an erase or program, so
+# a firmware upload or an NVS write doesn't stall forwarding. The
+# board's GD25Q256 needs its own chip driver for it (main/flash_chips.c).
+CONFIG_SPI_FLASH_AUTO_SUSPEND=y
+CONFIG_SPI_FLASH_OVERRIDE_CHIP_DRIVER_LIST=y
+
 # Signed updates (off here; the key is not in the repository): firmware
 # taken over ATDECC must then be signed with a key the running firmware
 # was signed with. Secure Boot V2 RSA, checked at update time only:
