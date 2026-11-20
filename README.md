@@ -40,12 +40,12 @@ Registry under the **scrambletools** namespace
   application code needs to touch the radio.
 - 802.11 FTM responder on the SoftAP so wireless endpoints can measure
   peer-delay).
-- No ATDECC entity of its own by default — the bridge is L2-transparent
-  per Milan / 802.1Q semantics. With `CONFIG_ESP_AVB_ATDECC=y` it adds a
-  maintenance entity on its Ethernet port (entity model
-  `CONFIG_AVB_BRIDGE_MODEL_ID`, no streams), whose memory objects are
-  the console log and, with `CONFIG_ESP_AVB_COPROCESSOR_FW_OBJECT=y`,
-  the coprocessor's firmware (see below).
+- L2-transparent per Milan / 802.1Q semantics, with an ATDECC entity of
+  its own for maintenance only (`CONFIG_ESP_AVB_ATDECC`, on by default):
+  on its Ethernet port, entity model `CONFIG_AVB_BRIDGE_MODEL_ID`, no
+  streams. Its memory objects are the console log, the last crash dump,
+  its own firmware and the coprocessor's firmware, so both chips update
+  over ATDECC (see below).
 
 ## Hardware
 
@@ -163,17 +163,30 @@ Key host-side defaults baked into `sdkconfig.defaults`:
   (`CONFIG_ESP_AVB_AVB_LITE_COMPLIANT=y`)
 - SoftAP channel `CONFIG_AVB_BRIDGE_AP_CHANNEL` (default 6)
 
-### Updating the coprocessor over ATDECC
+### Updating the firmware over ATDECC
 
-With `CONFIG_ESP_AVB_ATDECC=y` and `CONFIG_ESP_AVB_COPROCESSOR_FW_OBJECT=y`
-(both off by default) the coprocessor's app image is a FIRMWARE_IMAGE
-memory object named "Coprocessor firmware", updated the IEEE
-1722.1-2021 Annex D way: Start Operation UPLOAD, Address Access WRITEs
-of `coprocessor/build/avb_bridge_coprocessor.bin`, then STORE or
-STORE_AND_REBOOT. The host keeps the upload in PSRAM, checks it is an
-ESP32-C6 image of the `avb_bridge_coprocessor` project, writes it to the
-coprocessor's spare OTA slot over esp-hosted (the coprocessor checks it
-again), switches the coprocessor to it and restarts. A failed check
+Both chips' app images are FIRMWARE_IMAGE memory objects (on by
+default), updated the IEEE 1722.1-2021 Annex D way: Start Operation
+UPLOAD, Address Access WRITEs of the .bin, then STORE or
+STORE_AND_REBOOT. Controllers tell them apart by name.
+
+"Firmware" is the host's (`build/avb_bridge.bin`), written to its
+inactive OTA slot (`partitions.csv`: two 3 MB slots and a core dump
+partition). The bootloader keeps a new image only once it has reached
+gPTP within 60 s, which also needs the coprocessor up; otherwise it
+goes back to the old one. Flash auto-suspend keeps forwarding running
+while the slot is written. A board still on the old single-slot layout
+needs one USB flash of the bootloader, partition table and app to move;
+the settings in nvs are kept. In signed builds (see `sdkconfig.defaults`)
+an upload must be signed with a key the running firmware was signed with.
+
+"Coprocessor firmware" is the coprocessor's
+(`coprocessor/build/avb_bridge_coprocessor.bin`,
+`CONFIG_ESP_AVB_COPROCESSOR_FW_OBJECT`). The host keeps the upload in
+PSRAM, checks it is an ESP32-C6 image of the `avb_bridge_coprocessor`
+project, writes it to the coprocessor's spare OTA slot over esp-hosted
+(the coprocessor checks it again), switches the coprocessor to it and
+restarts. A failed check
 leaves both chips as they were. The coprocessor's bootloader has no
 rollback, so an image that doesn't boot needs the coprocessor's UART to
 recover; the host and coprocessor images must use the same esp-hosted
