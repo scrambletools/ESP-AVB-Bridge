@@ -20,7 +20,6 @@
 #ifdef CONFIG_AVB_BRIDGE_PERF_TEST_MODE
 #include "avb_bridge_perf_test.h"
 #endif
-#include "coprocessor_fw.h"
 #include "sdkconfig.h"
 /* Self-gates on CONFIG_HEAP_TASK_TRACKING internally. */
 #include "esp_heap_task_info.h"
@@ -44,6 +43,7 @@
 #include <ethernet_init.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <hosted_avb_coprocessor_fw.h>
 #include <hosted_avb_peer.h>
 #include <hosted_avb_proto.h>
 #include <sdkconfig.h>
@@ -551,7 +551,16 @@ void app_main(void) {
   avb_config.model_id = CONFIG_AVB_BRIDGE_MODEL_ID;
   avb_config.vendor_name = "Scramble Tools";
   avb_config.model_name = "ESP-AVB Bridge";
-  coprocessor_fw_register();
+#endif
+#ifdef CONFIG_ESP_AVB_COPROCESSOR_FW_OBJECT
+  static const esp_avb_coprocessor_fw_t coprocessor_firmware = {
+      .name = "Coprocessor firmware",
+      .max_length = HOSTED_AVB_COPROCESSOR_SLOT_SIZE,
+      .store = hosted_avb_coprocessor_fw_store,
+      .activate = hosted_avb_coprocessor_fw_activate,
+  };
+  if (esp_avb_register_coprocessor_fw(&coprocessor_firmware) != ESP_OK)
+    ESP_LOGE(TAG, "Coprocessor firmware not offered to controllers");
 #endif
   avb_config.eth_handle = s_eth_handle;
   avb_config.eth_interface = "ETH_0";

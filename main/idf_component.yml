@@ -8,5 +8,5 @@ dependencies:
   espressif/esp_wifi_remote: ">=1.6.4,<2.0"
   espressif/esp_hosted: "==3.0.9"   # the coprocessor in coprocessor/ uses the same version
   scrambletools/esp_ptp: ">=1.10.0"
-  scrambletools/esp_hosted_avb: ">=0.6.0"
+  scrambletools/esp_hosted_avb: ">=0.8.0"
   scrambletools/esp_avb: "*"
