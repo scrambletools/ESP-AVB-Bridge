@@ -147,6 +147,16 @@ It needs `CONFIG_ESP_WIFI_ENABLE_FTM_PTP`, which only Espressif's
 pre-release FTM IDF has, `CONFIG_HOSTED_AVB_CLOCK_LINK` on both chips,
 and a responder that fills the Follow_Up.
 
+The bridge's own coprocessor is that responder with
+`CONFIG_FTM_TIME_RESPONDER` on both chips (off by default; the
+coprocessor also needs `CONFIG_ESP_WIFI_ENABLE_FTM_PTP`). The host sends
+the coprocessor gPTP time on its clock-link timer every 200 ms, with the
+upstream Follow_Up and the stations esp_ptp has admitted, and the
+coprocessor fills a Follow_Up into every FTM frame it sends those
+stations. The host logs the coprocessor's counts every 10 s (`FTMRESP`).
+On the bench, one Wi-Fi hop carried gPTP time at 69 ns standard
+deviation against wired gPTP.
+
 ### 2. Host (P4) firmware
 
 Build root: project root.

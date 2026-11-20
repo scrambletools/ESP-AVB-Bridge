@@ -1,0 +1,18 @@
+menu "FTM time responder"
+
+config FTM_TIME_RESPONDER
+    bool "Put a gPTP Follow_Up in every FTM frame (bridge)"
+    depends on HOSTED_AVB_CLOCK_LINK && !FTM_CLOCK_PROBE
+    default n
+    help
+        The access point side of 802.1AS FTM time transfer: the
+        coprocessor, the FTM responder, puts a Follow_Up in every FTM frame
+        it sends a station esp_ptp has admitted, giving gPTP time at that
+        frame's measurement. The host feeds it gPTP time on the
+        coprocessor's clock-link timer every 200 ms. Enable on both the
+        bridge and its coprocessor, with HOSTED_AVB_CLOCK_LINK on both;
+        the coprocessor also needs CONFIG_ESP_WIFI_ENABLE_FTM_PTP
+        (Espressif's PTP compatible FTM). The bridge logs the
+        coprocessor's counts every 10 s (FTMRESP lines).
+
+endmenu

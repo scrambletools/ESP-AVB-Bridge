@@ -14,6 +14,7 @@ endif()
 # test uses NVS.
 idf_component_register(SRCS ${srcs}
                        PRIV_REQUIRES esp_avb esp_ptp esp_hosted_avb esp_eth
+                                     ftm_time_responder
                                      esp_netif esp_event esp_timer esp_wifi
                                      esp_driver_gpio esp_driver_uart esp_rom heap
                                      log nvs_flash spi_flash

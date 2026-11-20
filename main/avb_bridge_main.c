@@ -46,6 +46,12 @@
 #include <hosted_avb_coprocessor_fw.h>
 #include <hosted_avb_peer.h>
 #include <hosted_avb_proto.h>
+#if CONFIG_HOSTED_AVB_CLOCK_LINK
+#include <hosted_avb_clock_link.h>
+#endif
+#if CONFIG_FTM_TIME_RESPONDER
+#include <ftm_time_responder.h>
+#endif
 #include <sdkconfig.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -541,6 +547,17 @@ void app_main(void) {
    * FTM-driven (responder side, no measurement). */
   ptpd_start_port(1, AVB_AP_IF_KEY, ptp_port_medium_wifi_ftm);
   if (ftm_clock_probe_transport_ready) ftm_clock_probe_transport_ready();
+#if CONFIG_HOSTED_AVB_CLOCK_LINK
+  /* Pairs this PTP clock with the coprocessor's timer over the board's
+   * clock link (P4 GPIO6 to C6 GPIO2). */
+  if (hosted_avb_clock_link_start() != ESP_OK)
+    ESP_LOGE(TAG, "Clock link not started");
+#endif
+#if CONFIG_FTM_TIME_RESPONDER
+  /* The coprocessor puts gPTP time in every FTM frame; feed it. */
+  if (ftm_time_responder_start() != ESP_OK)
+    ESP_LOGE(TAG, "FTM time responder not started");
+#endif
 
   /* Bridge role: port 0 = Ethernet (EMAC), port 1 = Wi-Fi AP. */
   avb_config_s avb_config = AVB_DEFAULT_CONFIG();
