@@ -662,7 +662,7 @@ void app_main(void) {
              "retx nack=%lu req=%lu sent=%lu late=%lu spaced=%lu evicted=%lu "
              "noslot=%lu noroom=%lu txfail=%lu  "
              "uplink nack=%lu rec=%lu gaveup=%lu dup=%lu  "
-             "acmp=%lu  oom=%lu  STA=%u  iram_free=%u/%u",
+             "acmp=%lu  adp=%lu  oom=%lu  STA=%u  iram_free=%u/%u",
              (unsigned long)eth_ok, (unsigned long)eth_fail,
              (unsigned long)wifi_ok, (unsigned long)wifi_fail,
              (unsigned long)wifi_ucast, (unsigned long)wifi_mcast,
@@ -688,6 +688,7 @@ void app_main(void) {
              (unsigned long)up_nacks, (unsigned long)up_rec,
              (unsigned long)up_gaveup, (unsigned long)up_dup,
              (unsigned long)avb_bridge_forward_stats_acmp_copies(),
+             (unsigned long)avb_bridge_forward_stats_adp_copies(),
              (unsigned long)wifi_oom, avb_bridge_wifi_ap_sta_count(),
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
