@@ -216,6 +216,14 @@ static bool report_consume(const wifi_event_ftm_report_t *report, double *rtt_ps
         esp_err_t vendor_status = esp_wifi_ftm_get_vendor_data(vendors, vendor_count);
         if (report_status != ESP_OK || vendor_status != ESP_OK) return false;
     }
+    /* The responder's TOD and TOA are 48-bit picosecond fields on air.
+     * Earlier Wi-Fi libraries report them as such; later ones extend them
+     * to 64 bits, past 2^48 after 281 s. Reduce to the 48-bit field the
+     * rest of this file and the clock model work in. */
+    for (unsigned index = 0; index < count; ++index) {
+        entries[index].t1 &= REMOTE_MASK;
+        entries[index].t4 &= REMOTE_MASK;
+    }
     unsigned matches = 0, mismatches = 0;
     for (unsigned index = 0; index < count; ++index) {
         if (!entries[index].dlog_token || !entries[index].t1 || !entries[index].t2 ||

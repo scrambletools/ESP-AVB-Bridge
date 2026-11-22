@@ -154,6 +154,14 @@ static uint8_t consume(const wifi_event_ftm_report_t *report,
   if (esp_wifi_ftm_get_report(s_entries, count) != ESP_OK ||
       esp_wifi_ftm_get_vendor_data(s_vendors, vendor_count) != ESP_OK)
     return HOSTED_AVB_WIFI_TIME_FAILED;
+  /* The responder's TOD and TOA are 48-bit picosecond fields on air.
+   * Earlier Wi-Fi libraries report them as such; later ones extend them
+   * to 64 bits, past 2^48 after 281 s. Reduce to the 48-bit field the
+   * arithmetic below works in. */
+  for (unsigned i = 0; i < count; i++) {
+    s_entries[i].t1 &= REMOTE_MASK;
+    s_entries[i].t4 &= REMOTE_MASK;
+  }
 
   /* Each measurement's Follow_Up arrives in a later frame, matched by the
    * Follow Up Dialog Token. */
