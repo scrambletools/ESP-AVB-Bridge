@@ -17,18 +17,19 @@ config FTM_TIME_ENGINE
 config FTM_TIME_ENGINE_KEEP_CADENCE
     bool "Keep to the session cadence after slow sessions"
     depends on FTM_TIME_ENGINE
-    default n
+    default y
     help
         Starts the next session no sooner than 125 ms on, however far
         behind the schedule slow sessions left it. Off, sessions that
         failed after about 1.4 s each left the schedule hours behind,
         and the engine then asked for FTM back to back to catch up:
-        37 sessions a second for 25 minutes.
+        37 sessions a second for 25 minutes. Bench-tested 11-23: 8 a
+        second straight after a 5 minute backlog.
 
 config FTM_TIME_ENGINE_DROP_ACROSS_STEP
     bool "Drop a single measurement taken across a responder clock step"
     depends on FTM_TIME_ENGINE
-    default n
+    default y
     help
         A session with one usable measurement takes the responder's rate
         from the previous session. A rate more than 1000 ppm off means
