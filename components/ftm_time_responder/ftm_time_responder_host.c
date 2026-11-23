@@ -2,18 +2,19 @@
  * Copyright 2026 Scramble Tools
  * License: MIT
  *
- * FTM time responder, host side (see ftm_time_responder.h). Every 200 ms
- * it sends the coprocessor gPTP time on the coprocessor's clock-link
- * timer, from the link's fit while this bridge's PTP clock follows the
- * grandmaster, with the upstream Follow_Up to relay, and the stations
- * esp_ptp has admitted on the Wi-Fi port. It logs the coprocessor's
- * status (FTMRESP lines) every 10 s.
+ * Time transfer, host side (see ftm_time_responder.h). Every 200 ms it
+ * sends the coprocessor gPTP time on the coprocessor's clock-link timer,
+ * from the link's fit while this bridge's PTP clock follows the
+ * grandmaster, for the FTM time responder and the beacon time element.
+ * For the responder it also sends the upstream Follow_Up to relay and
+ * the stations esp_ptp has admitted on the Wi-Fi port, and logs the
+ * coprocessor's status (FTMRESP lines) every 10 s.
  */
 #include "ftm_time_responder.h"
 
 #include "sdkconfig.h"
 
-#if CONFIG_FTM_TIME_RESPONDER && CONFIG_IDF_TARGET_ESP32P4
+#if CONFIG_FTM_TIME_TRANSFER && CONFIG_IDF_TARGET_ESP32P4
 
 #include <inttypes.h>
 #include <math.h>
@@ -41,6 +42,30 @@ static const char *TAG = "ftm_responder";
 static TaskHandle_t s_task;
 static uint32_t s_host_boot;
 
+#if CONFIG_BEACON_TIME_FROM_LINK
+static void on_beacon_status(uint32_t msg_id, const uint8_t *data,
+                             size_t length, void *user) {
+  beacon_time_status_t status;
+  if (msg_id != HOSTED_AVB_MSG_BEACON_TIME_STATUS || length != sizeof(status))
+    return;
+  memcpy(&status, data, sizeof(status));
+  if (status.version != BEACON_TIME_STATUS_VERSION)
+    return;
+  ESP_LOGI(TAG,
+           "BEACONTIME,filled %" PRIu32 ",left to the host %" PRIu32
+           " (no gPTP time %" PRIu32 ", no TSF read %" PRIu32
+           "),TSF read %" PRIu32 "-%" PRIu32 " ns,rate %+.3f ppm,"
+           "TSF less MAC clock %" PRId32 "..%" PRId32 " us before %" PRId32
+           "..%" PRId32 " us after",
+           status.filled, status.no_time + status.no_tsf, status.no_time,
+           status.no_tsf, status.read_min_ns, status.read_max_ns,
+           status.rate_ppb / 1000.0, status.tsf_less_mac_before_min,
+           status.tsf_less_mac_before_max, status.tsf_less_mac_after_min,
+           status.tsf_less_mac_after_max);
+}
+#endif
+
+#if CONFIG_FTM_TIME_RESPONDER
 static void on_status(uint32_t msg_id, const uint8_t *data, size_t length,
                       void *user) {
   ftm_time_responder_status_t status;
@@ -58,6 +83,7 @@ static void on_status(uint32_t msg_id, const uint8_t *data, size_t length,
            status.no_snapshot, status.transfers, status.transfers_rejected,
            status.maps_failed);
 }
+
 
 /* The stations esp_ptp has on its Wi-Fi port, with their logical ports
  * and whether they asked Sync to stop. */
@@ -88,13 +114,16 @@ static void publish_associations(const ptp_timing_snapshot_t *source) {
                                    sizeof(wire)))
     hosted_avb_peer_send(HOSTED_AVB_MSG_FTM_ASSOCIATIONS, wire, sizeof(wire));
 }
+#endif
 
 static void publish_time(void) {
   static uint32_t publication;
   ptp_timing_snapshot_t source;
   bool source_valid = ptpd_time_source_snapshot(&source);
+#if CONFIG_FTM_TIME_RESPONDER
   if (source_valid)
     publish_associations(&source);
+#endif
   ftm_time_transfer_t transfer = {
       .version = FTM_TIME_TRANSFER_VERSION,
       .host_boot = s_host_boot,
@@ -136,14 +165,29 @@ esp_err_t ftm_time_responder_start(void) {
   if (s_task)
     return ESP_OK;
   s_host_boot = esp_random() | 1;
+#if CONFIG_FTM_TIME_RESPONDER
   esp_err_t err = hosted_avb_peer_register(HOSTED_AVB_MSG_FTM_RESPONDER_STATUS,
                                            on_status, NULL);
   if (err != ESP_OK)
     return err;
+#endif
+#if CONFIG_BEACON_TIME_FROM_LINK
+  esp_err_t beacon_err = hosted_avb_peer_register(
+      HOSTED_AVB_MSG_BEACON_TIME_STATUS, on_beacon_status, NULL);
+  if (beacon_err != ESP_OK)
+    return beacon_err;
+#endif
   if (xTaskCreate(responder_task, "ftm_responder", 4096, NULL, 3, &s_task) !=
       pdPASS)
     return ESP_ERR_NO_MEM;
-  ESP_LOGI(TAG, "Feeding the coprocessor's FTM responder");
+  ESP_LOGI(TAG, "Feeding the coprocessor gPTP time"
+#if CONFIG_FTM_TIME_RESPONDER
+                ", FTM responder"
+#endif
+#if CONFIG_BEACON_TIME_FROM_LINK
+                ", beacon time element"
+#endif
+  );
   return ESP_OK;
 }
 

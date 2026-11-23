@@ -15,4 +15,22 @@ config FTM_TIME_RESPONDER
         (Espressif's PTP compatible FTM). The bridge logs the
         coprocessor's counts every 10 s (FTMRESP lines).
 
+config BEACON_TIME_FROM_LINK
+    bool "Fill the beacon time element for one instant (bridge)"
+    depends on HOSTED_AVB_CLOCK_LINK
+    default n
+    help
+        The coprocessor writes gPTP time at the very AP TSF the beacon
+        time element carries, from the host's gPTP time on its clock-link
+        timer, and the rate of gPTP time against the TSF in the element's
+        cumulativeScaledRateOffset. Without it the host stamps the element
+        and the coprocessor adds the TSF a host message later, with a
+        rate of 0, and stations follow it through a slow envelope. Enable
+        on both the bridge and its coprocessor, with HOSTED_AVB_CLOCK_LINK
+        on both. The coprocessor logs BEACONTIME lines every 10 s.
+
+config FTM_TIME_TRANSFER
+    bool
+    default y if FTM_TIME_RESPONDER || BEACON_TIME_FROM_LINK
+
 endmenu

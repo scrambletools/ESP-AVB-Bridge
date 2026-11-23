@@ -35,6 +35,7 @@
 #include "ftm_follow_up_tx.h"
 #include "ftm_radio_association.h"
 #include "ftm_time_responder_wire.h"
+#include "ftm_time_transfer_cp.h"
 #include "hosted_avb.h"
 #include "hosted_avb_clock_link.h"
 #include "hosted_avb_peer.h"
@@ -317,13 +318,16 @@ static bool register_callbacks(void) {
          esp_wifi_ftm_register_callbacks(&callbacks) == ESP_OK;
 }
 
+/* The transfer receiver (ftm_time_transfer_cp.c) hands over each one. */
+void ftm_time_responder_transfer(const ftm_time_transfer_t *transfer) {
+  if (s_transfers)
+    xQueueSend(s_transfers, transfer, 0);
+}
+
 static void on_message(uint32_t msg_id, const uint8_t *data, size_t length,
                        void *user) {
-  if (msg_id == HOSTED_AVB_MSG_FTM_TRANSFER &&
-      length == sizeof(ftm_time_transfer_t))
-    xQueueSend(s_transfers, data, 0);
-  else if (msg_id == HOSTED_AVB_MSG_FTM_ASSOCIATIONS &&
-           length == FTM_ASSOC_ADMISSION_SIZE)
+  if (msg_id == HOSTED_AVB_MSG_FTM_ASSOCIATIONS &&
+      length == FTM_ASSOC_ADMISSION_SIZE)
     receive_associations(data, length);
 }
 
@@ -345,9 +349,7 @@ static void responder_task(void *arg) {
   while (!hosted_avb_clock_link_map_mac(&map))
     vTaskDelay(pdMS_TO_TICKS(500));
   s_radio_boot = hosted_avb_radio_boot();
-  while (hosted_avb_peer_register(HOSTED_AVB_MSG_FTM_TRANSFER, on_message,
-                                  NULL) != ESP_OK ||
-         hosted_avb_peer_register(HOSTED_AVB_MSG_FTM_ASSOCIATIONS, on_message,
+  while (hosted_avb_peer_register(HOSTED_AVB_MSG_FTM_ASSOCIATIONS, on_message,
                                   NULL) != ESP_OK ||
          esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_START,
                                     on_ap_start, NULL) != ESP_OK)

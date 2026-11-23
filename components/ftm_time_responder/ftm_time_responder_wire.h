@@ -46,3 +46,22 @@ typedef struct __attribute__((packed)) {
 
 _Static_assert(sizeof(ftm_time_responder_status_t) == 40,
                "FTM time responder status");
+
+#define BEACON_TIME_STATUS_VERSION 2U
+/* Coprocessor to host, every 10 s: how the beacon time element went
+ * since the last report (BEACONTIME lines). */
+typedef struct __attribute__((packed)) {
+  uint32_t version;
+  uint32_t filled;        /* elements with gPTP time at their TSF */
+  uint32_t no_time;       /* left to the host: no fresh gPTP time */
+  uint32_t no_tsf;        /*   or no TSF read tight enough */
+  uint32_t read_min_ns;   /* the tightest TSF read */
+  uint32_t read_max_ns;   /* and the loosest one used */
+  int32_t rate_ppb;       /* gPTP against the TSF, last filled */
+  /* Whether the MAC clock register is the AP TSF: the TSF's low 32 bits
+   * less the register read just before, and just after, in µs, over a
+   * few reads (min and max of each). */
+  int32_t tsf_less_mac_before_min, tsf_less_mac_before_max;
+  int32_t tsf_less_mac_after_min, tsf_less_mac_after_max;
+} beacon_time_status_t;
+_Static_assert(sizeof(beacon_time_status_t) == 44, "beacon time status");

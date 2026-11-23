@@ -49,7 +49,7 @@
 #if CONFIG_HOSTED_AVB_CLOCK_LINK
 #include <hosted_avb_clock_link.h>
 #endif
-#if CONFIG_FTM_TIME_RESPONDER
+#if CONFIG_FTM_TIME_TRANSFER
 #include <ftm_time_responder.h>
 #endif
 #include <sdkconfig.h>
@@ -553,10 +553,11 @@ void app_main(void) {
   if (hosted_avb_clock_link_start() != ESP_OK)
     ESP_LOGE(TAG, "Clock link not started");
 #endif
-#if CONFIG_FTM_TIME_RESPONDER
-  /* The coprocessor puts gPTP time in every FTM frame; feed it. */
+#if CONFIG_FTM_TIME_TRANSFER
+  /* The coprocessor puts gPTP time in every FTM frame and the beacon
+   * time element; feed it. */
   if (ftm_time_responder_start() != ESP_OK)
-    ESP_LOGE(TAG, "FTM time responder not started");
+    ESP_LOGE(TAG, "Time transfer to the coprocessor not started");
 #endif
 
   /* Bridge role: port 0 = Ethernet (EMAC), port 1 = Wi-Fi AP. */

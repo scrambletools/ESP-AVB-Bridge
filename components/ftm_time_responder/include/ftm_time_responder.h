@@ -19,8 +19,10 @@
 extern "C" {
 #endif
 
-/* Host: starts feeding the coprocessor; call after esp_ptp's Wi-Fi port
- * and the clock link have started. The coprocessor side starts itself. */
+/* Host: starts feeding the coprocessor gPTP time, for the FTM time
+ * responder and, with CONFIG_BEACON_TIME_FROM_LINK, the beacon time
+ * element; call after esp_ptp's Wi-Fi port and the clock link have
+ * started. The coprocessor side starts itself. */
 esp_err_t ftm_time_responder_start(void);
 
 #ifdef __cplusplus
