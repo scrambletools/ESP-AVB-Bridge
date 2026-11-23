@@ -2,4 +2,4 @@ dependencies:
   idf: ">=5.5"
   # Same version as the host in ../main.
   espressif/esp_hosted: "==3.0.9"
-  scrambletools/esp_hosted_avb: ">=0.9.0"
+  scrambletools/esp_hosted_avb: ">=0.10.0"
