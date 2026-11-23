@@ -234,6 +234,18 @@ static uint8_t consume(const wifi_event_ftm_report_t *report,
     rate_source = HOSTED_AVB_WIFI_TIME_RATE_SESSIONS;
     /* A responder clock step between the sessions shows as a wild rate:
      * fall back to the last rate. */
+#if CONFIG_FTM_TIME_ENGINE_DROP_ACROSS_STEP
+    /* The one measurement may sit on either side of the step, so it
+     * carries the step too: drop it, and make this session the next
+     * one's anchor. */
+    if (!plausible_rate(neighbor_rate)) {
+      s_anchor.t1 = s_entries[first].t1;
+      s_anchor.t2 = s_entries[first].t2;
+      s_anchor.at_us = now_us;
+      out->rate_source = rate_source;
+      return HOSTED_AVB_WIFI_TIME_REJECTED;
+    }
+#endif
     if (!plausible_rate(neighbor_rate) && s_rate.valid &&
         now_us - s_rate.at_us <= RATE_MAX_AGE_US) {
       neighbor_rate = s_rate.rate;
@@ -336,6 +348,13 @@ static void engine_task(void *arg) {
   bool was_associated = false;
   TickType_t wake = xTaskGetTickCount();
   for (;;) {
+#if CONFIG_FTM_TIME_ENGINE_KEEP_CADENCE
+    /* Slow sessions left the schedule behind: restart it from now rather
+     * than catch up back to back. */
+    TickType_t now = xTaskGetTickCount();
+    if ((TickType_t)(now - wake) > pdMS_TO_TICKS(CADENCE_MS))
+      wake = now;
+#endif
     vTaskDelayUntil(&wake, pdMS_TO_TICKS(CADENCE_MS));
     wifi_ap_record_t ap;
     bool associated = esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
