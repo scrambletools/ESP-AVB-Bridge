@@ -29,6 +29,17 @@ config BEACON_TIME_FROM_LINK
         on both the bridge and its coprocessor, with HOSTED_AVB_CLOCK_LINK
         on both. The coprocessor logs BEACONTIME lines every 10 s.
 
+config BEACON_TIME_OFFSET_NS
+    int "Added to the beacon element's gPTP time (ns)"
+    depends on BEACON_TIME_FROM_LINK
+    range -1000000 1000000
+    default 64000
+    help
+        A constant the filled element's gPTP time is advanced by. Without
+        it a station behind esp-ap ran 64 us behind wired gPTP on the
+        scope (11-23, sd 1.9 us over 27 min): the latency between the
+        AP TSF read here and the TSF the station takes the time against.
+
 config FTM_TIME_TRANSFER
     bool
     default y if FTM_TIME_RESPONDER || BEACON_TIME_FROM_LINK

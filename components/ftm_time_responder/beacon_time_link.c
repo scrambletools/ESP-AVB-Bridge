@@ -114,6 +114,8 @@ bool hosted_avb_beacon_time_fill(uint8_t *follow_up, size_t follow_up_len,
     portEXIT_CRITICAL(&s_lock);
     return false;
   }
+  /* Measured: stations otherwise run this far behind wired gPTP. */
+  gptp_ns += CONFIG_BEACON_TIME_OFFSET_NS;
 
   /* gPTP time at the TSF below, all in the preciseOriginTimestamp. */
   memset(follow_up + FU_CORRECTION, 0, 8);
