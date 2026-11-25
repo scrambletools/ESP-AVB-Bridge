@@ -44,7 +44,11 @@
 
 #define CADENCE_MS 125
 #define LOG_SYNC_INTERVAL -3 /* 125 ms, 802.1AS 12.8.2 */
+#if CONFIG_FTM_TIME_ENGINE_LATE_REPORT
+#define REPORT_TIMEOUT_MS 3500 /* a lost first frame's retry reports ~2.07 s in */
+#else
 #define REPORT_TIMEOUT_MS 2000
+#endif
 #define START_RETRY_MS 1000
 #define MAX_ENTRIES 16
 #define REMOTE_MASK ((UINT64_C(1) << 48) - 1)
