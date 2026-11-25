@@ -41,11 +41,13 @@ config FTM_TIME_ENGINE_DROP_ACROSS_STEP
 config FTM_TIME_ENGINE_LATE_REPORT
     bool "Wait 3.5 s for a session's report"
     depends on FTM_TIME_ENGINE
-    default n
+    default y
     help
         Waits 3.5 s instead of 2 s for an FTM session's report before
         ending it. With two initiators on one responder, a session whose
         first frame was lost reports after its retry, about 2.07 s in
         (Espressif's example, 11-24), and a 2 s wait gave up on it.
+        Bench, 11-25, esp-dual with a second initiator on esp-ap: sessions
+        without a report fell from 9.2% to 1.2%.
 
 endmenu
